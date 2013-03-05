@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Sensenet - Home{% endblock %}
+
+{% block javascript %}
+
+    <script>
+        jQuery(document).ready(function(){
+
+            var username = 'pzuraq';
+            var password = 'applz12';
+
+            dbCreate = function(resource, params, handler){
+                params = jQuery.param(params);
+                $.ajax({
+                    type: "POST",
+                    url: "http://localhost:8000/api/"+resource+"/",
+                    data: params,
+                    dataType: 'json',
+                    username: username,
+                    password: password,
+                    success: function(data){
+                        if(handler)
+                            handler(data);
+                    }
+                })
+            }
+
+            dbRead   = function(resource, params, handler){
+                var query = resource+"/";
+                if (arguments.length == 2) { // if only two arguments were supplied
+                    if (Object.prototype.toString.call(params) == "[object Function]") {
+                        handler = params; 
+                        params = undefined;
+                    }
+                }
+                if(params){
+                    params = jQuery.param(params);
+                    query += "?"+params;
+                }
+                $.ajax({
+                    type: "GET",
+                    url: "http://localhost:8000/api/"+query,
+                    dataType: 'json',
+                    username: username,
+                    password: password,
+                    success: function(data){
+                        if(handler)
+                            handler(data);
+                    }
+                })
+            }
+
+            dbUpdate = function(resource, id, params, handler){
+                $.ajax({
+                    type: "PUT",
+                    url: "http://localhost:8000/api/"+resource+"/"+id+"/",
+                    dataType: 'json',
+                    username: username,
+                    password: password,
+                    success: function(data){
+                        if(handler)
+                            handler(data);
+                    }
+                })
+            }
+
+            dbDelete = function(resource, id, handler){
+                $.ajax({
+                    type: "DELETE",
+                    url: "http://localhost:8000/api/"+resource+"/"+id+"/",
+                    dataType: 'json',
+                    username: username,
+                    password: password,
+                    success: function(data){
+                        if(handler)
+                            handler(data);
+                    }
+                })
+            }
+
+            updateConnections = function(conn, remove){
+                if (!remove){
+                    connections.push(conn);
+                    if(conn.sourceId.indexOf('d') == -1){
+                        var sensorId = conn.sourceId.substr(1);
+                        var deviceId = conn.targetId.substr(1);
+                    } else {
+                        var deviceId = conn.sourceId.substr(1);
+                        var sensorId = conn.targetId.substr(1);
+                    }
+                    var createParams = {
+                        sensor: sensorId,
+                        device: deviceId,
+                        relation: "switch",
+                    }
+                    dbCreate("relations", createParams);
+                }
+                else {
+                    var idx = -1;
+                    for (var i = 0; i < connections.length; i++) {
+                        if (connections[i] == conn) {
+                            idx = i; break;
+                        }
+                    }
+                    if (idx != -1) connections.splice(idx, 1);
+
+                    if(conn.sourceId.indexOf('d') == -1){
+                        var sensorId = conn.sourceId.substr(1);
+                        var deviceId = conn.targetId.substr(1);
+                    } else {
+                        var deviceId = conn.sourceId.substr(1);
+                        var sensorId = conn.targetId.substr(1);
+                    }
+
+                    var lookupVals = {
+                        sensor: sensorId,
+                        device: deviceId,
+                    }
+
+                    dbRead("relations", lookupVals, function(relation){
+                        var id = relation.results[0].id;
+                        dbDelete("relations", id);
+                    })
+                }
+            }
+
+            jsPlumb.importDefaults({
+                DragOptions : { cursor: 'pointer', zIndex:2000 },
+                PaintStyle : { strokeStyle:'#666' },
+                EndpointStyle : { width:20, height:16, strokeStyle:'#666' },
+                Endpoint : "Rectangle",
+                Anchors : ["TopCenter", "TopCenter"]
+            });
+
+            var dropOptions = {
+                tolerance:"touch",
+                hoverClass:"dropHover",
+                activeClass:"dragActive"
+            };
+
+            var linkEndpoint = {
+                endpoint:["Dot", { radius:8 }],
+                paintStyle:{ fillStyle:"#222" },
+                isSource:true,
+                scope:"link",
+                connectorStyle:{ strokeStyle:"white", lineWidth:4, outlineColor:"#222" },
+                connector: ["Bezier", { curviness:60 } ],
+                maxConnections:2,
+                isTarget:true,
+                dropOptions : dropOptions
+            };
+
+            var endpoints = {};
+            var connections = [];
+
+            $('.right-link').each(function(){
+                name = $(this).attr('id');
+                endpoints[name] = jsPlumb.addEndpoint(this, { anchor:'RightMiddle' }, linkEndpoint);
+            });
+
+            $('.left-link').each(function(){
+                name = $(this).attr('id');
+                endpoints[name] = jsPlumb.addEndpoint(this, { anchor:'LeftMiddle' }, linkEndpoint);
+            });
+
+            $('.remove-conn').click(function(){
+                jsPlumb.detachAllConnections($(this).attr('href').substr(1));
+            });
+
+            dbRead("relations", function(relations, bindFunction) {
+                for (key in relations.results){
+                    var relation = relations.results[key];
+                    var sensor = 's'+relation.sensor
+                    var device = 'd'+relation.device
+                    jsPlumb.connect({source:endpoints[sensor],target:endpoints[device]});
+                }   
+
+                jsPlumb.bind("connection", function(info, originalEvent) {
+                    updateConnections(info.connection);
+                });
+                jsPlumb.bind("connectionDetached", function(info, originalEvent) {
+                    updateConnections(info.connection, true);
+                });  
+            }); 
+
+            $(window).resize(function(){
+                jsPlumb.repaintEverything();
+            });
+
+        });
+    </script>
+
+{% endblock %}
+
+{% block content %}
+    
+    <div class="navbar">
+      <div class="navbar-inner">
+        <a class="brand" href="#">sensenet</a>
+        <ul class="nav">
+          <li class="active"><a href="#">Home</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="row-fluid">
+        <div class="span2">
+            <ul class="nav nav-tabs nav-stacked">
+                <li><a href="#relations">Sensors/Devices</a></li>
+                <li><a href="#hubs">Hubs</a></li>
+            </ul>
+        </div>
+        <div class="span5">
+            <div class="content">
+                <h2>Sensors</h2>
+                <table class="table table-bordered">
+                    <thead>
+                        <th>Sensor Name</th>
+                        <th class="tbl-button">Clear</th>
+                        <th class="tbl-button">Link</th>
+                    </thead>
+                    <tbody>
+                        {% for sensor in sensors %}
+                            <tr>
+                                <td>{{ sensor.name }}</td>
+                                <td>
+                                    <a href="#s{{ sensor.id }}" class="btn btn-primary remove-conn">
+                                        <i class="icon-remove-sign"></i>
+                                    </a>
+                                </td>
+                                <td><div id="s{{ sensor.id }}" class="right-link"></div></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="span5">
+            <div class="content">
+                <h2>Devices</h2>
+                <table class="table table-bordered">
+                    <thead>
+                        <th class="tbl-button">Link</th>
+                        <th class="tbl-button">Clear</th>
+                        <th>Device Name</th>
+                    </thead>
+                    <tbody>
+                        {% for device in devices %}
+                            <tr>
+                                <td><div id="d{{ device.id }}" class="left-link"></div></td>
+                                <td>
+                                    <a href="#d{{ device.id }}" class="btn btn-primary remove-conn">
+                                        <i class="icon-remove-sign"></i>
+                                    </a>
+                                </td>
+                                <td>{{ device.name }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </dov>
+
+{% endblock %}

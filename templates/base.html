@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>{% block title %}BASE{% endblock %}</title>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+
+    {% include "includes/dependencies.html" %}
+
+    {% block javascript %}{% endblock %}
+
+</head>
+
+<body>
+    <div class="container-fluid">
+        {% block content %}{% endblock %}
+    </div>
+</body>
