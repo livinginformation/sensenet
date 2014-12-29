@@ -1,1 +1,3 @@
 Created by Christopher Miles Garrett and Douglas Roffel
+
+Sensenet is a proof-of-concept Internet of Things application that runs on two Arduinos with ethernet shields, and a local webserver. It allows for the dynamic rerouting of virtual connections between physical I/O devices, in this case, switches and lights. Each Arduino has a switch and light wired into it, and the webserver allows the user to change which switch controls which light. It has potential applications for smart home wiring, where a homeowner can dynamically change what object in the house that switch controls, without needing to modify existing wiring.
